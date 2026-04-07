@@ -363,6 +363,43 @@ async function executePlan(task, providedTabId) {
 
   broadcastStatus('started', { task: task });
 
+  // Smart pre-navigation: if the task mentions a known site, go there first
+  var taskLower = task.toLowerCase();
+  var siteMap = {
+    'linkedin': 'https://www.linkedin.com',
+    'github': 'https://www.github.com',
+    'youtube': 'https://www.youtube.com',
+    'twitter': 'https://www.twitter.com',
+    'amazon': 'https://www.amazon.com',
+    'google': 'https://www.google.com',
+    'facebook': 'https://www.facebook.com',
+    'instagram': 'https://www.instagram.com',
+    'reddit': 'https://www.reddit.com',
+    'indeed': 'https://www.indeed.com',
+    'glassdoor': 'https://www.glassdoor.com'
+  };
+  var currentUrl = '';
+  try { var ct = await chrome.tabs.get(tabId); currentUrl = ct.url || ''; } catch (e) {}
+  for (var siteName in siteMap) {
+    if (taskLower.indexOf(siteName) >= 0 && currentUrl.indexOf(siteName) < 0) {
+      var targetUrl = siteMap[siteName];
+      // Add /jobs for linkedin job tasks
+      if (siteName === 'linkedin' && (taskLower.indexOf('job') >= 0 || taskLower.indexOf('trabajo') >= 0 || taskLower.indexOf('empleo') >= 0 || taskLower.indexOf('aplic') >= 0)) {
+        targetUrl = 'https://www.linkedin.com/jobs';
+      }
+      broadcastStatus('info', { message: 'Navigating to ' + targetUrl + '...' });
+      try {
+        await chrome.tabs.update(tabId, { url: targetUrl });
+        await waitForTabLoad(tabId, 10000);
+        await ensureContentScripts(tabId);
+        taskHistory.push('navigate: Went to ' + targetUrl);
+      } catch (e) {
+        console.log('[OBA] pre-nav error:', e);
+      }
+      break;
+    }
+  }
+
   try {
     await ensureContentScripts(tabId);
   } catch (err) {
