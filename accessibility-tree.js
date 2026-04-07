@@ -71,9 +71,17 @@
     }
 
     function isVisible(el) {
-      const style = window.getComputedStyle(el);
-      return style.display !== 'none' && style.visibility !== 'hidden' &&
-             style.opacity !== '0' && el.offsetWidth > 0 && el.offsetHeight > 0;
+      try {
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden') return false;
+        // Be lenient - some elements have 0 dimensions but are still interactive
+        if (el.offsetWidth > 0 || el.offsetHeight > 0) return true;
+        // Check bounding rect as fallback
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 || rect.height > 0;
+      } catch (e) {
+        return false;
+      }
     }
 
     function isInteractive(el) {
@@ -88,11 +96,10 @@
 
     function isRelevant(el) {
       const tag = el.tagName.toLowerCase();
-      if (['script', 'style', 'meta', 'link', 'title', 'noscript'].includes(tag)) return false;
-      if (el.getAttribute('aria-hidden') === 'true') return false;
+      if (['script', 'style', 'meta', 'link', 'title', 'noscript', 'svg', 'path'].includes(tag)) return false;
+      // Don't skip aria-hidden for interactive elements (some sites misuse it)
+      if (el.getAttribute('aria-hidden') === 'true' && !isInteractive(el)) return false;
       if (!isVisible(el)) return false;
-      const rect = el.getBoundingClientRect();
-      if (!(rect.top < window.innerHeight && rect.bottom > 0 && rect.left < window.innerWidth && rect.right > 0)) return false;
       if (filter === 'interactive') return isInteractive(el);
       if (isInteractive(el)) return true;
       if (getName(el).length > 0) return true;
@@ -133,6 +140,36 @@
     }
 
     if (document.body) walk(document.body, 0);
+
+    // FALLBACK: if we found very few elements, do a brute-force scan
+    if (lines.length < 5) {
+      var selectors = 'a, button, input, textarea, select, [role="button"], [role="link"], [onclick], [tabindex]';
+      var allEls = document.querySelectorAll(selectors);
+      for (var fi = 0; fi < allEls.length && fi < 100; fi++) {
+        var fel = allEls[fi];
+        try {
+          var frect = fel.getBoundingClientRect();
+          if (frect.width === 0 && frect.height === 0) continue;
+          if (frect.top > window.innerHeight * 2) continue;
+          var fRole = getRole(fel);
+          var fName = getName(fel);
+          var fRefId = null;
+          for (var fid in window.__ollamaElementMap) {
+            if (window.__ollamaElementMap[fid].deref() === fel) { fRefId = fid; break; }
+          }
+          if (!fRefId) {
+            fRefId = 'ref_' + (++window.__ollamaRefCounter);
+            window.__ollamaElementMap[fRefId] = new WeakRef(fel);
+          }
+          var fLine = fRole;
+          if (fName) fLine += ' "' + fName.replace(/\s+/g, ' ').substring(0, 80).replace(/"/g, '\\"') + '"';
+          fLine += ' [' + fRefId + ']';
+          if (fel.href) fLine += ' href="' + fel.href.substring(0, 100) + '"';
+          lines.push(fLine);
+        } catch (e) {}
+      }
+    }
+
     // Cleanup dead refs
     for (const id of Object.keys(window.__ollamaElementMap)) {
       if (!window.__ollamaElementMap[id].deref()) delete window.__ollamaElementMap[id];
