@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "Ollama Browser Agent",
+  "version": "0.4.0",
+  "description": "AI browser agent powered by local Ollama models",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs",
+    "storage",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "http://localhost:11434/*",
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["register-tab.js", "accessibility-tree.js", "visual-indicator.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "Open Ollama Agent"
+  },
+  "web_accessible_resources": [
+    {
+      "matches": ["<all_urls>"],
+      "resources": ["sidepanel.html", "pdf.min.mjs", "pdf.worker.min.mjs"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

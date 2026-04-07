@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ollama Agent</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #0a0a0a; color: #e5e5e5;
+  font-size: 13px; display: flex; flex-direction: column; height: 100%;
+}
+
+/* Header */
+.header {
+  padding: 12px 16px; background: #111; border-bottom: 1px solid #1e1e1e;
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.header h1 { font-size: 14px; font-weight: 600; color: #ff6b00; flex: 1; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #444; flex-shrink: 0; }
+.dot.ok { background: #22c55e; }
+.dot.running { background: #ff6b00; animation: pulse 1.5s infinite; }
+@keyframes pulse { 50% { opacity: 0.4; } }
+select.model-select {
+  font-size: 11px; background: #1a1a1a; color: #999; border: 1px solid #2a2a2a;
+  border-radius: 6px; padding: 4px 8px; outline: none; max-width: 140px;
+}
+
+/* Chat area */
+.chat {
+  flex: 1; overflow-y: auto; padding: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.chat::-webkit-scrollbar { width: 5px; }
+.chat::-webkit-scrollbar-track { background: transparent; }
+.chat::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+
+.msg { max-width: 92%; line-height: 1.55; animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+
+.msg.user {
+  align-self: flex-end; background: #1a1a1a; border: 1px solid #2a2a2a;
+  border-radius: 14px 14px 4px 14px; padding: 10px 14px; color: #e5e5e5;
+}
+.msg.assistant {
+  align-self: flex-start; background: #141414; border: 1px solid #1e1e1e;
+  border-radius: 14px 14px 14px 4px; padding: 10px 14px; color: #ccc;
+}
+.msg.system {
+  align-self: center; font-size: 11px; color: #666;
+  background: none; padding: 4px 0;
+}
+
+/* Plan box */
+.plan-box {
+  background: #141414; border: 1px solid #ff6b0040; border-radius: 10px;
+  padding: 12px 14px; margin: 4px 0;
+}
+.plan-box h3 { font-size: 12px; color: #ff6b00; margin-bottom: 8px; font-weight: 600; }
+.plan-box ol { padding-left: 20px; font-size: 12px; color: #bbb; line-height: 1.7; }
+.plan-box .plan-actions { display: flex; gap: 8px; margin-top: 10px; }
+.plan-box button {
+  font-size: 12px; padding: 6px 14px; border-radius: 6px; cursor: pointer;
+  border: none; font-weight: 500;
+}
+.plan-box .approve { background: #ff6b00; color: #fff; }
+.plan-box .approve:hover { background: #e06000; }
+.plan-box .reject { background: #2a2a2a; color: #999; }
+.plan-box .reject:hover { background: #333; color: #e5e5e5; }
+
+/* Agent step indicators */
+.step-indicator {
+  font-size: 11px; padding: 6px 10px;
+  background: #0f0f0f; border-left: 2px solid #ff6b0060;
+  border-radius: 0 6px 6px 0; color: #888;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+.step-indicator.thinking { border-left-color: #a78bfa60; color: #a78bfa; }
+.step-indicator.action { border-left-color: #22c55e60; color: #22c55e; }
+.step-indicator.error { border-left-color: #ef444460; color: #ef4444; }
+.step-indicator.done { border-left-color: #ff6b00; color: #ff6b00; font-weight: 600; }
+
+/* File attachment preview */
+.attachment {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px;
+  padding: 6px 10px; font-size: 11px; color: #999; margin-bottom: 4px;
+}
+.attachment .remove {
+  cursor: pointer; color: #666; font-size: 14px; line-height: 1;
+}
+.attachment .remove:hover { color: #ef4444; }
+
+/* Input area */
+.input-area {
+  padding: 12px 16px; background: #111; border-top: 1px solid #1e1e1e;
+  flex-shrink: 0;
+}
+.input-row {
+  display: flex; align-items: flex-end; gap: 8px;
+  background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px;
+  padding: 4px 4px 4px 12px;
+  transition: border-color 0.15s;
+}
+.input-row:focus-within { border-color: #ff6b00; }
+.attachments-row { padding: 0 4px 6px 4px; display: flex; gap: 6px; flex-wrap: wrap; }
+
+textarea {
+  flex: 1; background: none; border: none; color: #e5e5e5;
+  font-family: inherit; font-size: 13px; resize: none;
+  outline: none; padding: 8px 0; min-height: 20px; max-height: 120px;
+  line-height: 1.4;
+}
+textarea::placeholder { color: #555; }
+
+.btn-icon {
+  width: 32px; height: 32px; border: none; background: none;
+  border-radius: 8px; cursor: pointer; display: flex;
+  align-items: center; justify-content: center; color: #666;
+  transition: all 0.15s; flex-shrink: 0;
+}
+.btn-icon:hover { background: #222; color: #e5e5e5; }
+.btn-icon.send { color: #ff6b00; }
+.btn-icon.send:hover { background: #ff6b0020; }
+.btn-icon.stop { color: #ef4444; }
+
+.btn-icon svg { width: 18px; height: 18px; }
+input[type="file"] { display: none; }
+
+/* Welcome */
+.welcome {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 40px 20px; text-align: center; gap: 12px;
+}
+.welcome h2 { font-size: 16px; color: #ff6b00; font-weight: 600; }
+.welcome p { color: #555; font-size: 13px; line-height: 1.5; max-width: 280px; }
+.welcome .tips {
+  display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 8px;
+}
+.welcome .tip {
+  font-size: 11px; padding: 6px 12px;
+  background: #141414; border: 1px solid #222; border-radius: 8px;
+  color: #777; cursor: pointer; transition: all 0.15s;
+}
+.welcome .tip:hover { border-color: #ff6b00; color: #e5e5e5; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="dot" id="dot"></div>
+    <h1>Ollama Agent</h1>
+    <select class="model-select" id="model"><option>loading...</option></select>
+  </div>
+
+  <div class="chat" id="chat">
+    <div class="welcome" id="welcome">
+      <h2>Ollama Browser Agent</h2>
+      <p>Chat with an AI agent that can browse the web for you. It will make a plan and ask before taking actions.</p>
+      <button id="connectBtn" style="margin:16px auto;display:block;padding:12px 24px;background:#ff6b00;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;">Connect to current tab</button>
+      <div id="connectedMsg" style="display:none;text-align:center;color:#22c55e;font-size:12px;margin:8px 0;"></div>
+      <div class="tips">
+        <div class="tip" data-msg="Search for remote developer jobs">Find jobs</div>
+        <div class="tip" data-msg="Summarize this page for me">Summarize page</div>
+        <div class="tip" data-msg="Fill out the form on this page">Fill form</div>
+        <div class="tip" data-msg="Extract all the links from this page">Extract links</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-area">
+    <div id="attachmentsRow" class="attachments-row" style="display:none"></div>
+    <div class="input-row">
+      <label class="btn-icon" for="fileInput" title="Attach PDF">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+        </svg>
+      </label>
+      <input type="file" id="fileInput" accept=".pdf,.txt,.csv,.json,.md">
+      <textarea id="input" placeholder="Message the agent..." rows="1"></textarea>
+      <button class="btn-icon send" id="sendBtn" title="Send">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+      <button class="btn-icon stop" id="stopBtn" title="Stop" style="display:none">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="6" width="12" height="12" rx="2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script src="pdf-extract.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
