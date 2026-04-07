@@ -167,7 +167,7 @@ async function handleChatMessage(msg) {
 // --- Ollama ---
 async function queryOllama(messages) {
   var controller = new AbortController();
-  var timeout = setTimeout(function() { controller.abort(); }, 120000);
+  var timeout = setTimeout(function() { controller.abort(); }, 180000);
   try {
     var res = await fetch(OLLAMA_URL + '/api/chat', {
       method: 'POST',
@@ -176,7 +176,7 @@ async function queryOllama(messages) {
         model: currentModel,
         messages: messages,
         stream: false,
-        options: { temperature: 0.3, num_predict: 512 }
+        options: { temperature: 0.3, num_predict: 1024 }
       }),
       signal: controller.signal
     });
@@ -218,7 +218,7 @@ async function getPageState(tabId) {
   await ensureContentScripts(tabId);
   var results = await chrome.scripting.executeScript({
     target: { tabId: tabId },
-    func: function() { return window.__generateAccessibilityTree('interactive', 8, 6000); }
+    func: function() { return window.__generateAccessibilityTree('all', 12, 15000); }
   });
   if (!results || !results[0] || !results[0].result) {
     return { error: 'Failed to read page.', tree: '' };
@@ -458,7 +458,7 @@ async function executePlan(task, providedTabId) {
       lastActions.push(actionKey);
       if (lastActions.length > 5) lastActions.shift();
       var repeated = lastActions.filter(function(a) { return a === actionKey; }).length;
-      if (repeated >= 3) {
+      if (repeated >= 5) {
         broadcastStatus('error', { message: 'Loop detected - same action repeated 3 times. Stopping.' });
         broadcastChat('I got stuck repeating the same action. Try giving me a more specific instruction.', false);
         break;
