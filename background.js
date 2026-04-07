@@ -373,7 +373,7 @@ async function executePlan(task, providedTabId) {
   await showIndicator(tabId, true);
 
   var lastActions = []; // For loop detection
-  var maxSteps = 30;
+  var maxSteps = 100;
   var consecutiveErrors = 0;
 
   for (var step = 0; step < maxSteps; step++) {
