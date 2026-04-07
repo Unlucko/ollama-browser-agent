@@ -179,6 +179,24 @@
         el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
         return { success: true, message: `Cleared and typed "${action.text}" into [${action.ref_id}]` };
+      case 'type_and_enter':
+        el.focus();
+        el.value = action.text || '';
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        setTimeout(function() {
+          el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+          el.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+          el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+          if (el.form) el.form.submit();
+        }, 100);
+        return { success: true, message: `Typed "${action.text}" and pressed Enter` };
+      case 'press_enter':
+        el.focus();
+        el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+        el.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+        el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true }));
+        return { success: true, message: `Pressed Enter on [${action.ref_id}]` };
       case 'extract':
         const text = el.textContent?.trim().slice(0, 1000) || '';
         return { success: true, message: text };
