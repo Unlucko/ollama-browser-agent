@@ -3,7 +3,7 @@ var DEFAULT_MODEL = 'qwen2.5:7b';
 
 var CHAT_SYSTEM = 'You are an AI browser agent. You control a web browser.\n\nWhen the user asks you to do something on the web, respond with a plan starting with "PLAN:".\n\nBe SPECIFIC. Use real URLs. Never say "search for the website" - navigate directly.\n\nExample - user says "find jobs on linkedin":\nPLAN:\n1. Navigate to https://www.linkedin.com/jobs\n2. Click the search box\n3. Type the job search query\n4. Click search button\n5. Browse and click on interesting results\n\nExample - user says "search for cats on google":\nPLAN:\n1. Navigate to https://www.google.com\n2. Click the search box\n3. Type "cats"\n4. Click Google Search button\n\nIf the user asks a question (not a web task), answer briefly.\nIf the user shares a file, summarize it.\nKeep responses under 80 words.';
 
-var AGENT_SYSTEM = 'You are a browser automation agent. You see an accessibility tree of the current page and must perform ONE action at a time.\n\nElements have ref_ids like [ref_1]. Use these to target elements.\n\nActions (respond with ONLY the JSON, nothing else):\n{"action": "click", "ref_id": "ref_X"}\n{"action": "type", "ref_id": "ref_X", "text": "..."}\n{"action": "clear_and_type", "ref_id": "ref_X", "text": "..."}\n{"action": "navigate", "url": "https://..."}\n{"action": "scroll", "direction": "down"}\n{"action": "done", "result": "what was accomplished"}\n\nCRITICAL RULES:\n1. NEVER repeat an action you already did. Check "Steps done" carefully.\n2. To go to a website, use navigate with the FULL URL (e.g. https://www.linkedin.com)\n3. Do NOT search for a website on Google. Navigate directly.\n4. After typing in a search box, click the search/submit button.\n5. If you see what you need, interact with it. If not, scroll down.\n6. If the task is done or impossible, use "done".\n7. Output ONLY the JSON object. No text before or after.';
+var AGENT_SYSTEM = 'You are a smart browser automation agent. You see the current page and must decide what to do next.\n\nYou MUST respond in this exact format:\n\nTHINKING: (analyze the current page, what you see, what the task needs, and what step to take next)\nACTION: (the JSON action)\n\nAvailable actions:\n{"action": "click", "ref_id": "ref_X"}\n{"action": "type", "ref_id": "ref_X", "text": "..."}\n{"action": "clear_and_type", "ref_id": "ref_X", "text": "..."}\n{"action": "navigate", "url": "https://full-url-here"}\n{"action": "scroll", "direction": "down"}\n{"action": "done", "result": "summary of what was accomplished"}\n\nRULES:\n1. THINK before acting. Analyze what you see on the page.\n2. Break complex tasks into small steps. For "apply to jobs on linkedin": first navigate to linkedin.com/jobs, then search, then click a job, then click apply.\n3. Navigate DIRECTLY to websites (https://linkedin.com). Never search for a website on Google.\n4. Check your previous steps. NEVER repeat the same action.\n5. If you are stuck or the task is impossible, use "done" and explain why.\n6. After typing in a search field, look for a search button or press enter by clicking it.\n\nExample response:\nTHINKING: I need to search for jobs on LinkedIn. I am currently on Google. I should navigate directly to LinkedIn jobs page.\nACTION: {"action": "navigate", "url": "https://www.linkedin.com/jobs"}';
 
 var activeTask = null;
 var taskHistory = [];
@@ -430,8 +430,7 @@ async function executePlan(task, providedTabId) {
       if (taskHistory.length > 0) {
         userMsg += '\n\nSteps done:\n' + taskHistory.map(function(h, i) { return (i + 1) + '. ' + h; }).join('\n');
       }
-      userMsg += '\n\nIMPORTANT: Do NOT repeat the same action. If you already tried something, try a different approach. If the task seems complete or impossible, use {"action":"done","result":"explanation"}.';
-      userMsg += '\n\nNext action (JSON only):';
+      userMsg += '\n\nRespond with THINKING: then ACTION: as described in your instructions.';
 
       var response = await queryOllama([
         { role: 'system', content: AGENT_SYSTEM },
@@ -439,11 +438,16 @@ async function executePlan(task, providedTabId) {
       ]);
 
       console.log('[OBA] agent:', response);
-      broadcastStatus('info', { message: 'LLM: ' + response.slice(0, 100) });
+
+      // Extract thinking
+      var thinkingMatch = response.match(/THINKING:\s*([\s\S]*?)(?=ACTION:|$)/i);
+      if (thinkingMatch) {
+        broadcastStatus('info', { message: thinkingMatch[1].trim().slice(0, 200) });
+      }
 
       var action = parseAction(response);
       if (!action) {
-        broadcastStatus('error', { message: 'Bad output: ' + response.slice(0, 150), step: step + 1 });
+        broadcastStatus('error', { message: 'Bad output: ' + response.slice(0, 200), step: step + 1 });
         consecutiveErrors++;
         if (consecutiveErrors >= 3) break;
         continue;
