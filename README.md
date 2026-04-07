@@ -25,13 +25,22 @@ Inspired by Claude's browser extension, but using your own local models.
 
 ### 1. Install Ollama
 
+Download from [ollama.com](https://ollama.com) or:
+
+**macOS:**
 ```bash
-# macOS
 brew install ollama
 brew services start ollama
-
-# Or download from https://ollama.com
 ```
+
+**Linux:**
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+sudo systemctl start ollama
+```
+
+**Windows:**
+Download the installer from [ollama.com/download](https://ollama.com/download/windows). Ollama runs as a system service automatically.
 
 ### 2. Pull a model
 
@@ -46,17 +55,42 @@ ollama pull llama3.1:8b
 
 ### 3. Configure CORS
 
-Ollama needs to accept requests from the Chrome extension:
+Ollama needs to accept requests from the Chrome extension.
 
+**macOS (Homebrew):**
 ```bash
-# If using homebrew, add to your plist or:
-launchctl setenv OLLAMA_ORIGINS "*"
+# Edit the plist
+nano ~/Library/LaunchAgents/homebrew.mxcl.ollama.plist
+# Add inside <dict> -> EnvironmentVariables -> <dict>:
+#   <key>OLLAMA_ORIGINS</key>
+#   <string>*</string>
 
-# Then restart Ollama
+# Or set it directly:
+launchctl setenv OLLAMA_ORIGINS "*"
 brew services restart ollama
 ```
 
-Or add `OLLAMA_ORIGINS=*` to your Ollama environment config.
+**macOS (app):**
+```bash
+launchctl setenv OLLAMA_ORIGINS "*"
+# Quit and reopen the Ollama app
+```
+
+**Linux:**
+```bash
+sudo systemctl edit ollama
+# Add these lines:
+# [Service]
+# Environment="OLLAMA_ORIGINS=*"
+
+sudo systemctl restart ollama
+```
+
+**Windows (PowerShell as admin):**
+```powershell
+[System.Environment]::SetEnvironmentVariable("OLLAMA_ORIGINS", "*", "Machine")
+# Restart Ollama from the system tray
+```
 
 ### 4. Download pdf.js (for PDF support)
 
