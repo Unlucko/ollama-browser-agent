@@ -216,6 +216,8 @@ async function ensureContentScripts(tabId) {
 
 async function getPageState(tabId) {
   await ensureContentScripts(tabId);
+  // Wait for dynamic content to render (LinkedIn, SPAs, etc)
+  await new Promise(function(r) { setTimeout(r, 500); });
   var results = await chrome.scripting.executeScript({
     target: { tabId: tabId },
     func: function() { return window.__generateAccessibilityTree('all', 12, 15000); }

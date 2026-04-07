@@ -141,11 +141,11 @@
 
     if (document.body) walk(document.body, 0);
 
-    // FALLBACK: if we found very few elements, do a brute-force scan
-    if (lines.length < 5) {
+    // FALLBACK: if we found few elements, do a brute-force scan
+    if (lines.length < 30) {
       var selectors = 'a, button, input, textarea, select, [role="button"], [role="link"], [onclick], [tabindex]';
       var allEls = document.querySelectorAll(selectors);
-      for (var fi = 0; fi < allEls.length && fi < 100; fi++) {
+      for (var fi = 0; fi < allEls.length && fi < 200; fi++) {
         var fel = allEls[fi];
         try {
           var frect = fel.getBoundingClientRect();
