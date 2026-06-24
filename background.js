@@ -138,6 +138,9 @@ async function handleChatMessage(msg) {
     var response = await queryOllama(messages);
     console.log('[OBA] chat response:', response.slice(0, 200));
 
+    // Strip native thinking tags to avoid showing raw reasoning in chat bubbles
+    response = response.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
     // Check if it's a plan
     if (response.toUpperCase().indexOf('PLAN:') >= 0) {
       var planStart = response.toUpperCase().indexOf('PLAN:');
@@ -189,7 +192,9 @@ async function queryOllama(messages) {
 }
 
 function parseAction(text) {
-  var match = text.match(/\{[\s\S]*?\}/);
+  // Strip native thinking tags to avoid matching JSON examples inside reasoning blocks
+  var cleanText = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  var match = cleanText.match(/\{[\s\S]*?\}/);
   if (!match) return null;
   try { return JSON.parse(match[0]); } catch (e) { return null; }
 }
@@ -218,14 +223,51 @@ async function getPageState(tabId) {
   await ensureContentScripts(tabId);
   // Wait for dynamic content to render (LinkedIn, SPAs, etc)
   await new Promise(function(r) { setTimeout(r, 500); });
-  var results = await chrome.scripting.executeScript({
-    target: { tabId: tabId },
-    func: function() { return window.__generateAccessibilityTree('all', 12, 15000); }
-  });
-  if (!results || !results[0] || !results[0].result) {
-    return { error: 'Failed to read page.', tree: '' };
+
+  var attempts = [
+    { filter: 'all', depth: 12 },
+    { filter: 'all', depth: 8 },
+    { filter: 'interactive', depth: 8 },
+    { filter: 'interactive', depth: 5 }
+  ];
+
+  for (var i = 0; i < attempts.length; i++) {
+    var attempt = attempts[i];
+    try {
+      var results = await chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        func: function(f, d) { return window.__generateAccessibilityTree(f, d, 15000); },
+        args: [attempt.filter, attempt.depth]
+      });
+      if (results && results[0] && results[0].result) {
+        var res = results[0].result;
+        if (!res.error) {
+          return res;
+        }
+        console.log('[OBA] getPageState attempt ' + i + ' (filter=' + attempt.filter + ', depth=' + attempt.depth + ') exceeded limit: ' + res.error);
+      }
+    } catch (e) {
+      console.log('[OBA] getPageState attempt ' + i + ' error:', e);
+    }
   }
-  return results[0].result;
+
+  // Final fallback: interactive only, depth 4, no character limit so we get something
+  try {
+    var finalResults = await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      func: function() { return window.__generateAccessibilityTree('interactive', 4, 0); }
+    });
+    if (finalResults && finalResults[0] && finalResults[0].result) {
+      var finalRes = finalResults[0].result;
+      if (!finalRes.error) {
+        return finalRes;
+      }
+    }
+  } catch (e) {
+    console.log('[OBA] getPageState fallback error:', e);
+  }
+
+  return { error: 'Failed to read page. DOM is too large.', tree: '' };
 }
 
 async function waitForTabLoad(tabId, timeoutMs) {
@@ -478,10 +520,21 @@ async function executePlan(task, providedTabId) {
 
       console.log('[OBA] agent:', response);
 
-      // Extract thinking
-      var thinkingMatch = response.match(/THINKING:\s*([\s\S]*?)(?=ACTION:|$)/i);
-      if (thinkingMatch) {
-        broadcastStatus('info', { message: thinkingMatch[1].trim().slice(0, 200) });
+      // Extract thinking (support both THINKING: format and <think>...</think> tags)
+      var thinkingText = '';
+      var thinkTagMatch = response.match(/<think>([\s\S]*?)<\/think>/i);
+      if (thinkTagMatch) {
+        thinkingText = thinkTagMatch[1].trim();
+      } else {
+        var thinkingMatch = response.match(/THINKING:\s*([\s\S]*?)(?=ACTION:|$)/i);
+        if (thinkingMatch) {
+          thinkingText = thinkingMatch[1].trim();
+        }
+      }
+      if (thinkingText) {
+        // Strip any HTML/XML-like tags if present
+        thinkingText = thinkingText.replace(/<[^>]*>/g, '').trim();
+        broadcastStatus('info', { message: thinkingText.slice(0, 200) });
       }
 
       var action = parseAction(response);
@@ -567,7 +620,7 @@ chrome.tabs.onActivated.addListener(function(info) {
   }
 });
 
-// Listen for tab registrations from content scripts
+// Listen for tab registrations and runtime messages from popup/UI
 chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
   if (msg.type === 'register_tab' && sender.tab) {
     var tabId = sender.tab.id;
@@ -577,6 +630,26 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
     // Notify sidepanels
     broadcast({ type: 'set_target', tabId: tabId, url: msg.url, title: msg.title });
     chrome.storage.local.set({ targetTabId: tabId });
+  } else if (msg.type === 'check_ollama') {
+    fetch(OLLAMA_URL + '/api/tags')
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        var models = data.models.map(function(m) { return m.name; });
+        sendResponse({ ok: true, models: models });
+      })
+      .catch(function(err) {
+        sendResponse({ ok: false, error: err.message });
+      });
+    return true; // Keep message channel open for async response
+  } else if (msg.type === 'get_state') {
+    sendResponse({ model: currentModel });
+  } else if (msg.type === 'set_model') {
+    currentModel = msg.model;
+    chrome.storage.local.set({ model: msg.model });
+    sendResponse({ ok: true });
+  } else if (msg.type === 'run_task') {
+    executePlan(msg.task);
+    sendResponse({ ok: true });
   }
 });
 

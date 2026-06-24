@@ -172,6 +172,10 @@ function connectPort() {
   if (myTabId) {
     port.postMessage({ type: 'set_tab', tabId: myTabId });
   }
+  // Sync the current model choice to background
+  if (modelEl.value && modelEl.value !== 'loading...') {
+    port.postMessage({ type: 'set_model', model: modelEl.value });
+  }
   port.onMessage.addListener(function(msg) {
     if (msg.type === 'agent_status') handleAgentStatus(msg);
     if (msg.type === 'chat_response') handleChatResponse(msg);
@@ -286,10 +290,21 @@ async function init() {
       opt.value = m; opt.textContent = m;
       modelEl.appendChild(opt);
     });
-    var preferred = models.find(function(m) { return m.indexOf('qwen') >= 0; }) ||
-                    models.find(function(m) { return m.indexOf('llama') >= 0; }) ||
-                    models[0];
-    if (preferred) modelEl.value = preferred;
+
+    var stored = await chrome.storage.local.get('model');
+    var storedModel = stored.model;
+
+    if (storedModel && models.indexOf(storedModel) >= 0) {
+      modelEl.value = storedModel;
+    } else {
+      var preferred = models.find(function(m) { return m.indexOf('qwen') >= 0; }) ||
+                      models.find(function(m) { return m.indexOf('llama') >= 0; }) ||
+                      models[0];
+      if (preferred) {
+        modelEl.value = preferred;
+        chrome.storage.local.set({ model: preferred });
+      }
+    }
   } catch (e) {
     dotEl.className = 'dot';
     addMsg('Ollama not running at localhost:11434', 'system');
