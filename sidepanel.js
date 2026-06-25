@@ -11,8 +11,11 @@ var attachmentsRow = document.getElementById('attachmentsRow');
 var port = null;
 var running = false;
 var attachedFiles = [];
+var currentThinkEl = null;
 var chatHistory = [];
 var myTabId = null; // THE tab this sidepanel controls
+var lastConnectedUrl = null;
+var lastConnectedTitle = null;
 
 // --- Find and lock to current tab on startup ---
 async function findMyTab() {
@@ -80,6 +83,9 @@ function addStep(text, cls) {
   el.textContent = text;
   chatEl.appendChild(el);
   chatEl.scrollTop = chatEl.scrollHeight;
+  if (cls === 'thinking' || cls === 'think_update') {
+    currentThinkEl = el;
+  }
   return el;
 }
 
@@ -181,9 +187,14 @@ function connectPort() {
     if (msg.type === 'chat_response') handleChatResponse(msg);
     if (msg.type === 'plan') handlePlanResponse(msg);
     if (msg.type === 'set_target') {
+      var isNew = (myTabId !== msg.tabId || lastConnectedUrl !== msg.url);
       myTabId = msg.tabId;
+      lastConnectedUrl = msg.url;
+      lastConnectedTitle = msg.title;
       console.log('[SP] target set via port:', msg.tabId, msg.url);
-      addStep('Connected to: ' + (msg.title || msg.url), '');
+      if (isNew) {
+        addStep('Connected to: ' + (msg.title || msg.url), '');
+      }
     }
   });
   port.onDisconnect.addListener(function() {
@@ -193,7 +204,18 @@ function connectPort() {
 
 function handleAgentStatus(msg) {
   switch (msg.status) {
-    case 'thinking': addStep('Step ' + msg.step + ': thinking...', 'thinking'); break;
+    case 'thinking': 
+      var label = msg.mode === 'deciding' ? 'deciding...' : 'thinking...';
+      addStep('Step ' + msg.step + ': ' + label, 'thinking'); 
+      break;
+    case 'think_update':
+      if (currentThinkEl) {
+        currentThinkEl.textContent = msg.text;
+        chatEl.scrollTop = chatEl.scrollHeight;
+      } else {
+        addStep(msg.text, 'think_update');
+      }
+      break;
     case 'info': addStep(msg.message, ''); break;
     case 'step':
       if (msg.action) {
@@ -205,12 +227,21 @@ function handleAgentStatus(msg) {
       addStep('Done: ' + msg.message + ' (' + msg.steps + ' steps)', 'done');
       setRunning(false);
       break;
-    case 'stopped': setRunning(false); break;
+    case 'stopped':
+      addStep('Stopped', 'error');
+      setRunning(false);
+      break;
     case 'error':
       addStep('Error: ' + msg.message, 'error');
       if (!msg.step) setRunning(false);
       break;
     case 'started': addStep('Agent started...', ''); break;
+    case 'ask_user':
+      addMsg('Agent: ' + msg.question, 'assistant');
+      setRunning(false);
+      inputEl.placeholder = "Agent is waiting for your reply...";
+      inputEl.focus();
+      break;
   }
 }
 
@@ -243,6 +274,7 @@ function sendMessage() {
   addMsg(text || '(file attached)', 'user');
   chatHistory.push({ role: 'user', content: fullMsg });
   inputEl.value = '';
+  inputEl.placeholder = "Tell the agent what to do...";
   autoResize();
   setRunning(true);
   port.postMessage({
@@ -256,8 +288,6 @@ function sendMessage() {
 sendBtn.addEventListener('click', sendMessage);
 stopBtn.addEventListener('click', function() {
   port.postMessage({ type: 'stop_task' });
-  setRunning(false);
-  addStep('Stopped', 'error');
 });
 inputEl.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && !e.shiftKey && !running) { e.preventDefault(); sendMessage(); }
@@ -274,6 +304,56 @@ document.querySelectorAll('.tip').forEach(function(el) {
 
 modelEl.addEventListener('change', function() {
   if (port) port.postMessage({ type: 'set_model', model: modelEl.value });
+});
+
+var fastModeEl = document.getElementById('fastMode');
+var thinkingModeEl = document.getElementById('thinkingMode');
+
+chrome.storage.local.get(['fastMode', 'thinkingMode'], function(data) {
+  if (data.fastMode !== undefined) {
+    fastModeEl.checked = !!data.fastMode;
+  } else {
+    fastModeEl.checked = true;
+    chrome.storage.local.set({ fastMode: true });
+  }
+  if (data.thinkingMode !== undefined) {
+    thinkingModeEl.checked = !!data.thinkingMode;
+  } else {
+    thinkingModeEl.checked = true;
+    chrome.storage.local.set({ thinkingMode: true });
+  }
+  updateModeBadge();
+});
+
+function updateModeBadge() {
+  var badge = document.getElementById('modeBadge');
+  if (!badge) return;
+  var thinking = thinkingModeEl.checked;
+  var fast = fastModeEl.checked;
+  badge.className = 'mode-badge';
+  if (thinking && fast) {
+    badge.classList.add('fast');
+    badge.textContent = '⚡ FAST + THINKING';
+  } else if (thinking) {
+    badge.classList.add('thinking');
+    badge.textContent = '🧠 THINKING';
+  } else if (fast) {
+    badge.classList.add('fast');
+    badge.textContent = '⚡ FAST';
+  } else {
+    badge.classList.add('normal');
+    badge.textContent = 'STANDARD';
+  }
+}
+
+fastModeEl.addEventListener('change', function() {
+  chrome.storage.local.set({ fastMode: fastModeEl.checked });
+  updateModeBadge();
+});
+
+thinkingModeEl.addEventListener('change', function() {
+  chrome.storage.local.set({ thinkingMode: thinkingModeEl.checked });
+  updateModeBadge();
 });
 
 // --- Init ---

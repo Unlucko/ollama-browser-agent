@@ -78,6 +78,7 @@ select.model-select {
   font-family: 'SF Mono', 'Fira Code', monospace;
 }
 .step-indicator.thinking { border-left-color: #a78bfa60; color: #a78bfa; }
+.step-indicator.think_update { border-left-color: #a78bfa60; color: #a78bfa; white-space: pre-wrap; }
 .step-indicator.action { border-left-color: #22c55e60; color: #22c55e; }
 .step-indicator.error { border-left-color: #ef444460; color: #ef4444; }
 .step-indicator.done { border-left-color: #ff6b00; color: #ff6b00; font-weight: 600; }
@@ -92,6 +93,90 @@ select.model-select {
   cursor: pointer; color: #666; font-size: 14px; line-height: 1;
 }
 .attachment .remove:hover { color: #ef4444; }
+
+/* Settings bar toggles */
+.settings-bar {
+  padding: 6px 14px;
+  background: #0c0c0c;
+  border-bottom: 1px solid #1a1a1a;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  user-select: none;
+  padding: 3px 8px 3px 4px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.toggle-group:hover { background: #161616; }
+
+.toggle-label {
+  font-size: 11px;
+  color: #666;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.toggle-label .icon { font-size: 13px; }
+.toggle-label .txt { line-height: 1; }
+
+/* Toggle switch */
+.toggle-switch {
+  position: relative;
+  width: 30px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.toggle-switch input { display: none; }
+.toggle-track {
+  position: absolute; inset: 0;
+  background: #2a2a2a;
+  border-radius: 8px;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+.toggle-thumb {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 12px; height: 12px;
+  background: #555;
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+.toggle-switch input:checked ~ .toggle-track { background: #ff6b0030; border: 1px solid #ff6b0070; }
+.toggle-switch input:checked ~ .toggle-track .toggle-thumb { transform: translateX(14px); background: #ff6b00; }
+
+/* Active label color */
+.toggle-group:has(input:checked) .toggle-label { color: #bbb; }
+
+.settings-sep {
+  width: 1px; height: 14px;
+  background: #222;
+  flex-shrink: 0;
+}
+
+/* Mode badge */
+.mode-badge {
+  margin-left: auto;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  transition: all 0.2s;
+}
+.mode-badge.thinking { background: #a78bfa20; color: #a78bfa; border: 1px solid #a78bfa40; }
+.mode-badge.fast { background: #22c55e20; color: #22c55e; border: 1px solid #22c55e40; }
+.mode-badge.normal { background: #ff6b0020; color: #ff6b00; border: 1px solid #ff6b0040; }
 
 /* Input area */
 .input-area {
@@ -153,6 +238,37 @@ input[type="file"] { display: none; }
     <div class="dot" id="dot"></div>
     <h1>Ollama Agent</h1>
     <select class="model-select" id="model"><option>loading...</option></select>
+  </div>
+
+  <div class="settings-bar" id="settingsBar">
+    <!-- Thinking Mode toggle -->
+    <label class="toggle-group" for="thinkingMode" title="Thinking mode makes the agent reason step-by-step before acting">
+      <span class="toggle-label">
+        <span class="icon">🧠</span>
+        <span class="txt">Thinking</span>
+      </span>
+      <div class="toggle-switch">
+        <input type="checkbox" id="thinkingMode" checked>
+        <div class="toggle-track"><div class="toggle-thumb"></div></div>
+      </div>
+    </label>
+
+    <div class="settings-sep"></div>
+
+    <!-- Fast Mode toggle -->
+    <label class="toggle-group" for="fastMode" title="Fast mode reads fewer page elements for quicker responses">
+      <span class="toggle-label">
+        <span class="icon">⚡</span>
+        <span class="txt">Fast</span>
+      </span>
+      <div class="toggle-switch">
+        <input type="checkbox" id="fastMode">
+        <div class="toggle-track"><div class="toggle-thumb"></div></div>
+      </div>
+    </label>
+
+    <!-- Dynamic mode badge -->
+    <span class="mode-badge thinking" id="modeBadge">THINKING</span>
   </div>
 
   <div class="chat" id="chat">

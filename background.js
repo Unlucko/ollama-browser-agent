@@ -3,7 +3,18 @@ var DEFAULT_MODEL = 'qwen2.5:7b';
 
 var CHAT_SYSTEM = 'You are an AI browser agent. You control a web browser.\n\nWhen the user asks you to do something on the web, respond with a plan starting with "PLAN:".\n\nBe SPECIFIC. Use real URLs. Never say "search for the website" - navigate directly.\n\nExample - user says "find jobs on linkedin":\nPLAN:\n1. Navigate to https://www.linkedin.com/jobs\n2. Click the search box\n3. Type the job search query\n4. Click search button\n5. Browse and click on interesting results\n\nExample - user says "search for cats on google":\nPLAN:\n1. Navigate to https://www.google.com\n2. Click the search box\n3. Type "cats"\n4. Click Google Search button\n\nIf the user asks a question (not a web task), answer briefly.\nIf the user shares a file, summarize it.\nKeep responses under 80 words.';
 
-var AGENT_SYSTEM = 'You are a smart browser automation agent. You see the current page and must decide what to do next.\n\nYou MUST respond in this exact format:\n\nTHINKING: (analyze the current page, what you see, what the task needs, and what step to take next)\nACTION: (the JSON action)\n\nAvailable actions:\n{"action": "click", "ref_id": "ref_X"}\n{"action": "type", "ref_id": "ref_X", "text": "..."}\n{"action": "clear_and_type", "ref_id": "ref_X", "text": "..."}\n{"action": "type_and_enter", "ref_id": "ref_X", "text": "..."} - Type text and press Enter (best for search boxes)\n{"action": "press_enter", "ref_id": "ref_X"}\n{"action": "navigate", "url": "https://full-url-here"}\n{"action": "scroll", "direction": "down"}\n{"action": "done", "result": "summary of what was accomplished"}\n\nRULES:\n1. THINK before acting. Analyze what you see on the page.\n2. Break complex tasks into small steps. For "apply to jobs on linkedin": first navigate to linkedin.com/jobs, then search for a role, then click a job posting, then find and click the Apply/Solicitud button.\n3. Navigate DIRECTLY to websites. Never search for a website on Google.\n4. For search boxes, use "type_and_enter" to type and submit in one step.\n5. Check your previous steps. NEVER repeat the same action. If something did not work, try a different approach.\n6. Look for buttons with text like "Apply", "Solicitud", "Submit", "Aplicar" and click them.\n7. If you are stuck or the task is impossible, use "done" and explain why.\n\nExample:\nTHINKING: I need to search for AI jobs. I see a search box [ref_5]. I will type my query and press Enter.\nACTION: {"action": "type_and_enter", "ref_id": "ref_5", "text": "AI Engineer remote"}';
+var AGENT_SYSTEM = 'You are a smart browser automation agent. You see the current page and must decide what to do next.\n\nYou MUST respond in this exact format:\n\nTHINKING: (analyze the current page, what you see, what the task needs, and what step to take next)\nACTION: (the JSON action)\n\nAvailable actions:\n{"action": "click", "ref_id": "ref_X"}\n{"action": "type", "ref_id": "ref_X", "text": "..."}\n{"action": "clear_and_type", "ref_id": "ref_X", "text": "..."}\n{"action": "type_and_enter", "ref_id": "ref_X", "text": "..."} - Type text and press Enter (best for search boxes)\n{"action": "press_enter", "ref_id": "ref_X"}\n{"action": "select", "ref_id": "ref_X", "value": "..."} - Select an option in a dropdown\n{"action": "hover", "ref_id": "ref_X"}\n{"action": "extract", "ref_id": "ref_X"} - Extract text from an element\n{"action": "navigate", "url": "https://full-url-here"}\n{"action": "scroll", "direction": "down|up"}\n{"action": "wait", "ms": 2000} - Wait for page loads\n{"action": "ask_user", "question": "..."} - Ask the user a question if you are stuck (e.g. need a password, captcha, or clarification)\n{"action": "done", "result": "summary of what was accomplished"}\n\nRULES:\n1. THINK before acting. Analyze what you see on the page.\n2. Break complex tasks into small steps. For "apply to jobs on linkedin": first navigate to linkedin.com/jobs, then search for a role, then click a job posting, then find and click the Apply/Solicitud button.\n3. Navigate DIRECTLY to websites. Never search for a website on Google.\n4. For search boxes, use "type_and_enter" to type and submit in one step.\n5. Check your previous steps. NEVER repeat the same action. If something did not work, try a different approach.\n6. Look for buttons with text like "Apply", "Solicitud", "Submit", "Aplicar" and click them.\n7. If you are stuck or need human help, use "ask_user".\n\nExample:\nTHINKING: I need to search for AI jobs. I see a search box [ref_5]. I will type my query and press Enter.\nACTION: {"action": "type_and_enter", "ref_id": "ref_5", "text": "AI Engineer remote"}';
+
+var AGENT_SYSTEM_NO_THINK = 'You are a smart browser automation agent. You see the current page and must decide what to do next.\n\nYou MUST respond in this exact format:\n\nACTION: (the JSON action)\n\nAvailable actions:\n{"action": "click", "ref_id": "ref_X"}\n{"action": "type", "ref_id": "ref_X", "text": "..."}\n{"action": "clear_and_type", "ref_id": "ref_X", "text": "..."}\n{"action": "type_and_enter", "ref_id": "ref_X", "text": "..."} - Type text and press Enter (best for search boxes)\n{"action": "press_enter", "ref_id": "ref_X"}\n{"action": "select", "ref_id": "ref_X", "value": "..."} - Select an option in a dropdown\n{"action": "hover", "ref_id": "ref_X"}\n{"action": "extract", "ref_id": "ref_X"} - Extract text from an element\n{"action": "navigate", "url": "https://full-url-here"}\n{"action": "scroll", "direction": "down|up"}\n{"action": "wait", "ms": 2000} - Wait for page loads\n{"action": "ask_user", "question": "..."} - Ask the user a question if you are stuck (e.g. need a password, captcha, or clarification)\n{"action": "done", "result": "summary of what was accomplished"}\n\nRULES:\n1. Respond with ACTION: followed by the action JSON immediately. No thinking, no reasoning, no explanations, no text before or after ACTION:.\n2. Break complex tasks into small steps. For "apply to jobs on linkedin": first navigate to linkedin.com/jobs, then search for a role, then click a job posting, then find and click the Apply/Solicitud button.\n3. Navigate DIRECTLY to websites. Never search for a website on Google.\n4. For search boxes, use "type_and_enter" to type and submit in one step.\n5. Check your previous steps. NEVER repeat the same action. If something did not work, try a different approach.\n6. Look for buttons with text like "Apply", "Solicitud", "Submit", "Aplicar" and click them.\n7. If you are stuck or need human help, use "ask_user".\n\nExample:\nACTION: {"action": "type_and_enter", "ref_id": "ref_5", "text": "AI Engineer remote"}';
+
+// --- Qwen3 thinking mode switching ---
+// For Qwen3 models running in Ollama/llama.cpp, thinking mode is toggled via
+// soft-switch tokens appended to the user message:
+//   /think    -> model uses <think>...</think> chain-of-thought before answering
+//   /no_think -> model skips thinking, answers directly (empty <think></think> block)
+// Recommended sampling parameters (per https://huggingface.co/unsloth/Qwen3-4B-GGUF):
+//   Thinking mode:    Temperature=0.6, TopP=0.95, TopK=20, MinP=0
+//   Non-thinking mode: Temperature=0.7, TopP=0.8,  TopK=20, MinP=0
 
 var activeTask = null;
 var taskHistory = [];
@@ -12,10 +23,16 @@ var activeTabId = null;
 var targetTabId = null;
 var ports = [];
 var pendingPlan = null;
+var pendingAskUserResolve = null;
+var ollamaAbortController = null;
+var chatBusy = false; // guard against concurrent chat calls
 var knownTabs = {}; // { tabId: { url, title } } - registered by content scripts
 
-chrome.storage.local.get('model', function(data) {
+chrome.storage.local.get(['model', 'knownTabs', 'targetTabId'], function(data) {
   if (data.model) currentModel = data.model;
+  if (data.knownTabs) knownTabs = data.knownTabs;
+  if (data.targetTabId) targetTabId = data.targetTabId;
+  registerAllTabs();
 });
 
 function isUsableUrl(url) {
@@ -81,6 +98,23 @@ function broadcastChat(text, agentRunning) {
   broadcast({ type: 'chat_response', text: text, agentRunning: !!agentRunning });
 }
 
+function stopTask() {
+  activeTask = null;
+  if (ollamaAbortController) {
+    try { ollamaAbortController.abort(); } catch (e) {}
+  }
+  if (pendingAskUserResolve) {
+    var resolve = pendingAskUserResolve;
+    pendingAskUserResolve = null;
+    resolve({ success: false, message: 'Task stopped by user', done: false });
+  }
+  if (activeTabId) {
+    showIndicator(activeTabId, false);
+  }
+  chatBusy = false;
+  broadcastStatus('stopped');
+}
+
 // --- Message handling ---
 function handleMessage(msg, port) {
   console.log('[OBA] msg:', msg.type);
@@ -99,8 +133,7 @@ function handleMessage(msg, port) {
     }
   }
   if (msg.type === 'stop_task') {
-    activeTask = null;
-    if (activeTabId) showIndicator(activeTabId, false);
+    stopTask();
   }
   if (msg.type === 'set_model') {
     currentModel = msg.model;
@@ -109,6 +142,21 @@ function handleMessage(msg, port) {
 }
 
 async function handleChatMessage(msg) {
+  if (pendingAskUserResolve) {
+    var resolve = pendingAskUserResolve;
+    pendingAskUserResolve = null;
+    broadcastChat(msg.text, true); // Agent is still running
+    resolve({ success: true, message: 'User replied: ' + msg.text });
+    return;
+  }
+
+  // Guard against concurrent chat calls racing each other
+  if (chatBusy) {
+    broadcastChat('Still processing previous message, please wait…', false);
+    return;
+  }
+  chatBusy = true;
+
   var text = msg.text;
   var history = msg.history || [];
 
@@ -152,6 +200,10 @@ async function handleChatMessage(msg) {
         broadcastChat(introText, true);
       }
 
+      // If there's already a pending plan, notify and replace it
+      if (pendingPlan) {
+        broadcastChat('Previous plan cancelled — new plan ready.', true);
+      }
       // Store pending plan
       pendingPlan = { task: text, plan: planText };
 
@@ -164,13 +216,20 @@ async function handleChatMessage(msg) {
   } catch (err) {
     console.error('[OBA] chat error:', err);
     broadcastChat('Error: ' + err.message, false);
+  } finally {
+    chatBusy = false;
   }
 }
 
-// --- Ollama ---
-async function queryOllama(messages) {
-  var controller = new AbortController();
+async function queryOllama(messages, options, onChunk) {
+  if (ollamaAbortController) ollamaAbortController.abort();
+  ollamaAbortController = new AbortController();
+  var controller = ollamaAbortController;
   var timeout = setTimeout(function() { controller.abort(); }, 180000);
+  var bodyOptions = { temperature: 0.3, num_predict: 1024 };
+  if (options) {
+    Object.assign(bodyOptions, options);
+  }
   try {
     var res = await fetch(OLLAMA_URL + '/api/chat', {
       method: 'POST',
@@ -178,25 +237,87 @@ async function queryOllama(messages) {
       body: JSON.stringify({
         model: currentModel,
         messages: messages,
-        stream: false,
-        options: { temperature: 0.3, num_predict: 1024 }
+        stream: !!onChunk,
+        options: bodyOptions
       }),
       signal: controller.signal
     });
     if (!res.ok) throw new Error('Ollama ' + res.status);
-    var data = await res.json();
-    return data.message.content;
+    
+    let reader = null;
+    if (onChunk) {
+      reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = '';
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          if (buffer.trim()) {
+            try {
+              const data = JSON.parse(buffer);
+              if (data.message && data.message.content) {
+                fullText += data.message.content;
+                onChunk(data.message.content, fullText);
+              }
+            } catch (e) {}
+          }
+          break;
+        }
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              const data = JSON.parse(line);
+              if (data.message && data.message.content) {
+                fullText += data.message.content;
+                onChunk(data.message.content, fullText);
+              }
+            } catch (e) {}
+          }
+        }
+      }
+      return fullText;
+    } else {
+      var data = await res.json();
+      return data.message.content;
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      console.log('[OBA] query aborted');
+      // Cancel the reader to release the underlying TCP connection
+      if (reader) { try { reader.cancel(); } catch (ce) {} }
+      return '';
+    }
+    throw e;
   } finally {
     clearTimeout(timeout);
+    if (ollamaAbortController === controller) {
+      ollamaAbortController = null;
+    }
   }
 }
 
 function parseAction(text) {
   // Strip native thinking tags to avoid matching JSON examples inside reasoning blocks
   var cleanText = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
-  var match = cleanText.match(/\{[\s\S]*?\}/);
+  // Use greedy match to capture the largest valid JSON object
+  var match = cleanText.match(/\{[\s\S]*\}/);
   if (!match) return null;
-  try { return JSON.parse(match[0]); } catch (e) { return null; }
+  // Try to parse; if it fails, try trimming from last }
+  try { return JSON.parse(match[0]); } catch (e) {
+    // Walk backwards to find the last valid JSON object
+    var str = match[0];
+    for (var end = str.length - 1; end > 0; end--) {
+      if (str[end] === '}') {
+        try { return JSON.parse(str.slice(0, end + 1)); } catch (e2) {}
+      }
+    }
+    return null;
+  }
 }
 
 // --- Content script injection ---
@@ -219,14 +340,21 @@ async function ensureContentScripts(tabId) {
   }
 }
 
-async function getPageState(tabId) {
+async function getPageState(tabId, fastMode) {
   await ensureContentScripts(tabId);
   // Wait for dynamic content to render (LinkedIn, SPAs, etc)
-  await new Promise(function(r) { setTimeout(r, 500); });
+  // Fast mode: shorter wait; normal mode: slightly longer for heavy SPAs
+  await new Promise(function(r) { setTimeout(r, fastMode ? 150 : 300); });
 
-  var attempts = [
-    { filter: 'all', depth: 12 },
-    { filter: 'all', depth: 8 },
+  // Smaller char limits = fewer input tokens = faster model inference
+  var charLimit = fastMode ? 8000 : 12000;
+
+  var attempts = fastMode ? [
+    { filter: 'interactive', depth: 8 },
+    { filter: 'interactive', depth: 5 }
+  ] : [
+    { filter: 'all', depth: 10 },
+    { filter: 'all', depth: 7 },
     { filter: 'interactive', depth: 8 },
     { filter: 'interactive', depth: 5 }
   ];
@@ -236,8 +364,8 @@ async function getPageState(tabId) {
     try {
       var results = await chrome.scripting.executeScript({
         target: { tabId: tabId },
-        func: function(f, d) { return window.__generateAccessibilityTree(f, d, 15000); },
-        args: [attempt.filter, attempt.depth]
+        func: function(f, d, limit) { return window.__generateAccessibilityTree(f, d, limit); },
+        args: [attempt.filter, attempt.depth, charLimit]
       });
       if (results && results[0] && results[0].result) {
         var res = results[0].result;
@@ -279,7 +407,8 @@ async function waitForTabLoad(tabId, timeoutMs) {
     } catch (e) {
       return false;
     }
-    await new Promise(function(r) { setTimeout(r, 500); });
+    await new Promise(function(r) { setTimeout(r, 300); });
+    if (!activeTask) return false;
   }
   return true; // timeout but continue anyway
 }
@@ -298,11 +427,26 @@ async function executeAction(tabId, action) {
     await waitForTabLoad(tabId, 10000);
     // Re-inject scripts after navigation
     try { await ensureContentScripts(tabId); } catch (e) {}
+    // Update knownTabs with the actual post-load URL and title (BUG 8 fix)
+    try {
+      var loadedTab = await chrome.tabs.get(tabId);
+      var actualUrl = loadedTab.url || action.url;
+      var actualTitle = loadedTab.title || '';
+      knownTabs[tabId] = { url: actualUrl, title: actualTitle };
+      chrome.storage.local.set({ knownTabs: knownTabs });
+      broadcast({ type: 'set_target', tabId: tabId, url: actualUrl, title: actualTitle });
+    } catch (e) {}
     return { success: true, message: 'Navigated to ' + action.url, newTabId: tabId };
   }
   if (action.action === 'wait') {
     await new Promise(function(r) { setTimeout(r, action.ms || 1000); });
     return { success: true, message: 'Waited ' + action.ms + 'ms' };
+  }
+  if (action.action === 'ask_user') {
+    broadcastStatus('ask_user', { question: action.question || 'Please provide input.' });
+    return new Promise(function(resolve) {
+      pendingAskUserResolve = resolve;
+    });
   }
   if (action.action === 'done') {
     return { success: true, done: true, message: action.result };
@@ -316,7 +460,7 @@ async function executeAction(tabId, action) {
       });
     } catch (e) {}
   }
-  await new Promise(function(r) { setTimeout(r, 200); });
+  await new Promise(function(r) { setTimeout(r, 50); });
   try {
     var results = await chrome.scripting.executeScript({
       target: { tabId: tabId },
@@ -326,7 +470,7 @@ async function executeAction(tabId, action) {
     var actionResult = results[0].result;
     // After click, wait for potential page navigation
     if (action.action === 'click') {
-      await new Promise(function(r) { setTimeout(r, 1000); });
+      await new Promise(function(r) { setTimeout(r, 400); });
       await waitForTabLoad(tabId, 5000);
       try { await ensureContentScripts(tabId); } catch (e) {}
     }
@@ -346,24 +490,6 @@ async function showIndicator(tabId, show) {
   } catch (e) {}
 }
 
-// --- Find target tab ---
-async function findTargetTab() {
-  if (targetTabId) {
-    try {
-      var tab = await chrome.tabs.get(targetTabId);
-      if (isUsableUrl(tab.url)) return targetTabId;
-    } catch (e) {}
-    targetTabId = null;
-  }
-  var allTabs = await chrome.tabs.query({});
-  for (var i = 0; i < allTabs.length; i++) {
-    if (isUsableUrl(allTabs[i].url)) {
-      targetTabId = allTabs[i].id;
-      return targetTabId;
-    }
-  }
-  return null;
-}
 
 // --- Execute approved plan ---
 async function executePlan(task, providedTabId) {
@@ -391,6 +517,7 @@ async function executePlan(task, providedTabId) {
         console.log('[OBA] inject into new tab error:', e);
       }
       knownTabs[tabId] = { url: 'https://www.google.com', title: 'Google' };
+      chrome.storage.local.set({ knownTabs: knownTabs });
     }
   }
   if (!tabId) {
@@ -459,14 +586,16 @@ async function executePlan(task, providedTabId) {
 
   for (var step = 0; step < maxSteps; step++) {
     if (!activeTask) {
-      broadcastStatus('stopped');
-      await showIndicator(tabId, false);
       return;
     }
 
     try {
-      broadcastStatus('thinking', { step: step + 1 });
-      if (step > 0) await new Promise(function(r) { setTimeout(r, 1000); });
+      var storedThinking = await chrome.storage.local.get(['thinkingMode', 'fastMode']);
+      var thinkingMode = storedThinking.thinkingMode !== false;
+      var settingsData = storedThinking;
+
+      broadcastStatus('thinking', { step: step + 1, mode: thinkingMode ? 'thinking' : 'deciding' });
+      if (step > 0) await new Promise(function(r) { setTimeout(r, 200); });
 
       // Verify tab still exists
       try {
@@ -488,8 +617,23 @@ async function executePlan(task, providedTabId) {
         targetTabId = tabId;
       }
 
+      if (!activeTask) return;
+
+      // Re-inject content scripts and show indicator (in case page navigated/reloaded)
+      try {
+        await ensureContentScripts(tabId);
+        await showIndicator(tabId, true);
+      } catch (e) {
+        console.log('[OBA] indicator show error:', e);
+      }
+
+      // Default fastMode to true if not yet stored (fresh install)
+      var fastMode = storedThinking.fastMode !== false;
       broadcastStatus('info', { message: 'Reading page...' });
-      var pageState = await getPageState(tabId);
+      var pageState = await getPageState(tabId, fastMode);
+      
+      if (!activeTask) return;
+
       if (pageState.error) {
         broadcastStatus('error', { message: pageState.error, step: step + 1 });
         consecutiveErrors++;
@@ -502,7 +646,7 @@ async function executePlan(task, providedTabId) {
       consecutiveErrors = 0;
 
       var elemCount = pageState.tree.split('\n').length;
-      broadcastStatus('info', { message: elemCount + ' elements. Thinking...' });
+      broadcastStatus('info', { message: elemCount + ' elements found.' });
 
       var currentTab = await chrome.tabs.get(tabId);
       var userMsg = 'Page: ' + currentTab.url + '\nTitle: ' + currentTab.title;
@@ -511,31 +655,61 @@ async function executePlan(task, providedTabId) {
       if (taskHistory.length > 0) {
         userMsg += '\n\nSteps done:\n' + taskHistory.map(function(h, i) { return (i + 1) + '. ' + h; }).join('\n');
       }
-      userMsg += '\n\nRespond with THINKING: then ACTION: as described in your instructions.';
+      
+      // Qwen3 soft-switch: append /think or /no_think to the user message.
+      // This is the official Ollama/llama.cpp mechanism for Qwen3 models.
+      // For non-Qwen3 models we fall back to separate system prompts.
+      // Qwen3 best-practice temperatures:
+      //   thinking mode  -> temp=0.6, top_p=0.95, top_k=20
+      //   no-think mode  -> temp=0.7, top_p=0.8,  top_k=20
+      var isQwen3 = currentModel.toLowerCase().indexOf('qwen3') >= 0;
+      var thinkSuffix = thinkingMode ? ' /think' : ' /no_think';
 
-      var response = await queryOllama([
-        { role: 'system', content: AGENT_SYSTEM },
-        { role: 'user', content: userMsg }
-      ]);
+      var agentOptions = thinkingMode
+        ? { num_predict: 1024, temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0 }
+        : { num_predict: 512,  temperature: 0.7, top_p: 0.8,  top_k: 20, min_p: 0 };
 
-      console.log('[OBA] agent:', response);
+      var finalUserMsg = isQwen3 ? userMsg + thinkSuffix : userMsg;
 
-      // Extract thinking (support both THINKING: format and <think>...</think> tags)
-      var thinkingText = '';
-      var thinkTagMatch = response.match(/<think>([\s\S]*?)<\/think>/i);
-      if (thinkTagMatch) {
-        thinkingText = thinkTagMatch[1].trim();
-      } else {
-        var thinkingMatch = response.match(/THINKING:\s*([\s\S]*?)(?=ACTION:|$)/i);
-        if (thinkingMatch) {
-          thinkingText = thinkingMatch[1].trim();
+      if (!isQwen3) {
+        // Legacy system-prompt mode for non-Qwen3 models
+        if (thinkingMode) {
+          finalUserMsg += '\n\nRespond with THINKING: then ACTION: as described in your instructions.';
+        } else {
+          finalUserMsg += '\n\nRespond with ACTION: as described in your instructions. Do NOT include any THINKING block or reasoning.';
         }
       }
-      if (thinkingText) {
-        // Strip any HTML/XML-like tags if present
-        thinkingText = thinkingText.replace(/<[^>]*>/g, '').trim();
-        broadcastStatus('info', { message: thinkingText.slice(0, 200) });
+
+      var systemPrompt = thinkingMode ? AGENT_SYSTEM : AGENT_SYSTEM_NO_THINK;
+      var onChunkCallback = null;
+      if (thinkingMode) {
+        onChunkCallback = function(chunk, fullText) {
+          var thinkStream = '';
+          var thinkTagMatch = fullText.match(/<think>([\s\S]*?)(?:<\/think>|$)/i);
+          if (thinkTagMatch) {
+            thinkStream = thinkTagMatch[1];
+          } else {
+            var thinkingMatch = fullText.match(/THINKING:\s*([\s\S]*?)(?=ACTION:|$)/i);
+            if (thinkingMatch) {
+              thinkStream = thinkingMatch[1];
+            } else {
+              thinkStream = fullText;
+            }
+          }
+          if (thinkStream.trim()) {
+            broadcastStatus('think_update', { text: thinkStream.replace(/<[^>]*>/g, '').trim() });
+          }
+        };
       }
+
+      var response = await queryOllama([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: finalUserMsg }
+      ], agentOptions, onChunkCallback);
+
+      if (!activeTask) return;
+
+      console.log('[OBA] agent:', response);
 
       var action = parseAction(response);
       if (!action) {
@@ -550,19 +724,23 @@ async function executePlan(task, providedTabId) {
       lastActions.push(actionKey);
       if (lastActions.length > 5) lastActions.shift();
       var repeated = lastActions.filter(function(a) { return a === actionKey; }).length;
-      if (repeated >= 5) {
-        broadcastStatus('error', { message: 'Loop detected - same action repeated 3 times. Stopping.' });
+      if (repeated >= 3) {
+        broadcastStatus('error', { message: 'Loop detected — same action repeated 3 times. Stopping.' });
         broadcastChat('I got stuck repeating the same action. Try giving me a more specific instruction.', false);
         break;
       }
 
       var result = await executeAction(tabId, action);
+      
+      if (!activeTask) return;
+
       // Update tabId if navigation created a new tab
       if (result.newTabId && result.newTabId !== tabId) {
         tabId = result.newTabId;
         activeTabId = tabId;
         targetTabId = tabId;
         knownTabs[tabId] = { url: action.url, title: '' };
+        chrome.storage.local.set({ knownTabs: knownTabs });
       }
       taskHistory.push(action.action + (action.ref_id ? ' [' + action.ref_id + ']' : '') + ': ' + result.message);
 
@@ -581,6 +759,7 @@ async function executePlan(task, providedTabId) {
         return;
       }
     } catch (err) {
+      if (!activeTask) return;
       console.error('[OBA] step error:', err);
       broadcastStatus('error', { message: err.message });
       activeTask = null;
@@ -592,7 +771,7 @@ async function executePlan(task, providedTabId) {
 
   activeTask = null;
   broadcastStatus('done', { message: 'Max steps reached', steps: 20 });
-  broadcastChat('Reached maximum steps (20). The task may be partially complete.', false);
+  broadcastChat('Reached maximum steps (' + maxSteps + '). The task may be partially complete.', false);
   await showIndicator(tabId, false);
 }
 
@@ -629,7 +808,7 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
     console.log('[OBA] tab registered:', tabId, msg.url);
     // Notify sidepanels
     broadcast({ type: 'set_target', tabId: tabId, url: msg.url, title: msg.title });
-    chrome.storage.local.set({ targetTabId: tabId });
+    chrome.storage.local.set({ targetTabId: tabId, knownTabs: knownTabs });
   } else if (msg.type === 'check_ollama') {
     fetch(OLLAMA_URL + '/api/tags')
       .then(function(res) { return res.json(); })
@@ -650,6 +829,9 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
   } else if (msg.type === 'run_task') {
     executePlan(msg.task);
     sendResponse({ ok: true });
+  } else if (msg.type === 'stop_task') {
+    stopTask();
+    sendResponse({ ok: true });
   }
 });
 
@@ -657,24 +839,46 @@ chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
 chrome.tabs.onRemoved.addListener(function(tabId) {
   delete knownTabs[tabId];
   if (targetTabId === tabId) targetTabId = null;
+  chrome.storage.local.set({ knownTabs: knownTabs, targetTabId: targetTabId });
 });
 
 // On startup, inject register-tab.js into ALL existing tabs
 async function registerAllTabs() {
-  var tabs = await chrome.tabs.query({});
-  console.log('[OBA] injecting into', tabs.length, 'tabs');
-  for (var i = 0; i < tabs.length; i++) {
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tabs[i].id },
-        files: ['register-tab.js']
-      });
-      console.log('[OBA] injected into tab', tabs[i].id);
-    } catch (e) {
-      console.log('[OBA] skip tab', tabs[i].id, e.message);
+  try {
+    var tabs = await chrome.tabs.query({});
+    var tabIds = new Set(tabs.map(function(t) { return t.id; }));
+
+    // Clean up stale tabs in knownTabs
+    var changed = false;
+    for (var idStr in knownTabs) {
+      var id = parseInt(idStr);
+      if (!tabIds.has(id)) {
+        delete knownTabs[id];
+        changed = true;
+      }
     }
+    if (changed) {
+      chrome.storage.local.set({ knownTabs: knownTabs });
+    }
+
+    console.log('[OBA] checking injection status for', tabs.length, 'tabs');
+    for (var i = 0; i < tabs.length; i++) {
+      var tab = tabs[i];
+      if (isUsableUrl(tab.url) && !knownTabs[tab.id]) {
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['register-tab.js']
+          });
+          console.log('[OBA] injected register-tab.js into tab', tab.id);
+        } catch (e) {
+          console.log('[OBA] skip tab', tab.id, e.message);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[OBA] registerAllTabs error:', err);
   }
 }
-registerAllTabs();
 
 console.log('[OBA] background loaded v3');
