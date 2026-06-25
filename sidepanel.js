@@ -383,10 +383,27 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
   micBtn.addEventListener('click', function() {
     if (isRecording) {
       recognition.stop();
-    } else {
-      inputEl.value = '';
-      recognition.start();
+      return;
     }
+    // Chrome extensions require explicit getUserMedia permission before
+    // the Speech Recognition API is allowed to use the microphone.
+    inputEl.value = '';
+    inputEl.placeholder = 'Requesting mic permission...';
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(function(stream) {
+        // Permission granted — stop the stream immediately (recognition manages it)
+        stream.getTracks().forEach(function(t) { t.stop(); });
+        recognition.start();
+      })
+      .catch(function(err) {
+        inputEl.placeholder = 'Message the agent...';
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          chrome.tabs.create({ url: chrome.runtime.getURL('mic-permission.html') });
+          addStep('Please grant microphone permission in the new tab, then try again.', 'error');
+        } else {
+          addStep('Mic error: ' + err.message, 'error');
+        }
+      });
   });
 } else {
   // Browser doesn't support speech recognition
