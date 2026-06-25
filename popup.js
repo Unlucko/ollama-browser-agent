@@ -67,8 +67,6 @@ run.addEventListener('click', () => {
 
 stop.addEventListener('click', () => {
   chrome.runtime.sendMessage({ type: 'stop_task' });
-  setRunning(false);
-  addLog('Stopped', 'error');
 });
 
 task.addEventListener('keydown', e => {
@@ -80,7 +78,8 @@ chrome.runtime.onMessage.addListener(msg => {
   if (msg.type !== 'agent_status') return;
   switch (msg.status) {
     case 'thinking':
-      addLog(`Step ${msg.step}: thinking...`, 'thinking');
+      var label = msg.mode === 'deciding' ? 'deciding...' : 'thinking...';
+      addLog(`Step ${msg.step}: ${label}`, 'thinking');
       steps.textContent = `Step ${msg.step}`;
       break;
     case 'step':
@@ -96,6 +95,7 @@ chrome.runtime.onMessage.addListener(msg => {
       setRunning(false);
       break;
     case 'stopped':
+      addLog('Stopped', 'error');
       setRunning(false);
       break;
     case 'error':

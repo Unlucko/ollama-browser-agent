@@ -74,7 +74,18 @@
       btn.addEventListener('mouseenter', () => { btn.style.background = '#262626'; });
       btn.addEventListener('mouseleave', () => { btn.style.background = '#1a1a1a'; });
       btn.addEventListener('click', () => {
-        chrome.runtime.sendMessage({ type: 'stop_task' });
+        console.log('[OBA] Stop Agent clicked in page indicator');
+        try {
+          chrome.runtime.sendMessage({ type: 'stop_task' }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.warn('[OBA] Send message lastError:', chrome.runtime.lastError.message);
+            } else {
+              console.log('[OBA] Stop task message response:', response);
+            }
+          });
+        } catch (err) {
+          console.error('[OBA] Failed to send stop_task message:', err);
+        }
       });
       stopContainer.appendChild(btn);
       document.body.appendChild(stopContainer);
