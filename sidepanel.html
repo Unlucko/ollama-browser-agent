@@ -212,6 +212,29 @@ textarea::placeholder { color: #555; }
 .btn-icon.stop { color: #ef4444; }
 
 .btn-icon svg { width: 18px; height: 18px; }
+.btn-icon.mic { color: #666; }
+.btn-icon.mic:hover { background: #222; color: #e5e5e5; }
+.btn-icon.mic.recording {
+  color: #ef4444;
+  animation: mic-pulse 1s ease-in-out infinite;
+}
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 #ef444440; }
+  50% { box-shadow: 0 0 0 6px #ef444420; }
+}
+
+/* Streaming bubble cursor */
+.stream-cursor {
+  display: inline-block;
+  width: 2px; height: 13px;
+  background: #ff6b00;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  border-radius: 1px;
+  animation: blink 0.7s steps(1) infinite;
+}
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
 input[type="file"] { display: none; }
 
 /* Welcome */
@@ -296,6 +319,11 @@ input[type="file"] { display: none; }
       </label>
       <input type="file" id="fileInput" accept=".pdf,.txt,.csv,.json,.md">
       <textarea id="input" placeholder="Message the agent..." rows="1"></textarea>
+      <button class="btn-icon mic" id="micBtn" title="Voice input">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3zm5.3 11a5.3 5.3 0 01-10.6 0H5a7 7 0 006 6.93V21H9v2h6v-2h-2v-2.07A7 7 0 0019 12h-1.7z"/>
+        </svg>
+      </button>
       <button class="btn-icon send" id="sendBtn" title="Send">
         <svg viewBox="0 0 24 24" fill="currentColor">
           <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>

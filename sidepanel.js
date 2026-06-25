@@ -12,8 +12,9 @@ var port = null;
 var running = false;
 var attachedFiles = [];
 var currentThinkEl = null;
+var currentStreamEl = null; // live streaming chat bubble
 var chatHistory = [];
-var myTabId = null; // THE tab this sidepanel controls
+var myTabId = null;
 var lastConnectedUrl = null;
 var lastConnectedTitle = null;
 
@@ -185,6 +186,9 @@ function connectPort() {
   port.onMessage.addListener(function(msg) {
     if (msg.type === 'agent_status') handleAgentStatus(msg);
     if (msg.type === 'chat_response') handleChatResponse(msg);
+    if (msg.type === 'chat_stream') handleChatStream(msg);
+    if (msg.type === 'chat_stream_done') handleChatStreamDone(msg);
+    if (msg.type === 'chat_stream_cancel') handleChatStreamCancel();
     if (msg.type === 'plan') handlePlanResponse(msg);
     if (msg.type === 'set_target') {
       var isNew = (myTabId !== msg.tabId || lastConnectedUrl !== msg.url);
@@ -251,6 +255,41 @@ function handleChatResponse(msg) {
   if (!msg.agentRunning) setRunning(false);
 }
 
+// --- Streaming chat handlers ---
+function handleChatStream(msg) {
+  if (!currentStreamEl) {
+    // Create the streaming bubble
+    if (welcomeEl) welcomeEl.style.display = 'none';
+    currentStreamEl = document.createElement('div');
+    currentStreamEl.className = 'msg assistant';
+    chatEl.appendChild(currentStreamEl);
+  }
+  currentStreamEl.innerHTML =
+    escapeHtml(msg.text).replace(/\n/g, '<br>') +
+    '<span class="stream-cursor"></span>';
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function handleChatStreamDone(msg) {
+  if (currentStreamEl) {
+    // Finalize the bubble — remove cursor, save to history
+    currentStreamEl.innerHTML = escapeHtml(msg.text).replace(/\n/g, '<br>');
+    currentStreamEl = null;
+  } else {
+    addMsg(msg.text, 'assistant');
+  }
+  chatHistory.push({ role: 'assistant', content: msg.text });
+  setRunning(false);
+}
+
+function handleChatStreamCancel() {
+  // Plan arrived or error — remove partial streaming bubble
+  if (currentStreamEl) {
+    currentStreamEl.remove();
+    currentStreamEl = null;
+  }
+}
+
 function handlePlanResponse(msg) {
   addPlan(msg.plan, function() {
     port.postMessage({ type: 'approve_plan', tabId: myTabId });
@@ -293,6 +332,66 @@ inputEl.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && !e.shiftKey && !running) { e.preventDefault(); sendMessage(); }
 });
 inputEl.addEventListener('input', autoResize);
+
+// --- Voice Input (Web Speech API) ---
+var micBtn = document.getElementById('micBtn');
+var recognition = null;
+var isRecording = false;
+
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  recognition.onstart = function() {
+    isRecording = true;
+    micBtn.classList.add('recording');
+    micBtn.title = 'Listening... (click to stop)';
+    inputEl.placeholder = 'Listening...';
+  };
+
+  recognition.onresult = function(e) {
+    var interim = '';
+    var final = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    inputEl.value = final || interim;
+    autoResize();
+  };
+
+  recognition.onend = function() {
+    isRecording = false;
+    micBtn.classList.remove('recording');
+    micBtn.title = 'Voice input';
+    inputEl.placeholder = 'Message the agent...';
+    // Auto-send if there's text from voice
+    if (inputEl.value.trim() && !running) sendMessage();
+  };
+
+  recognition.onerror = function(e) {
+    isRecording = false;
+    micBtn.classList.remove('recording');
+    micBtn.title = 'Voice input';
+    inputEl.placeholder = 'Message the agent...';
+    if (e.error !== 'no-speech') addStep('Mic error: ' + e.error, 'error');
+  };
+
+  micBtn.addEventListener('click', function() {
+    if (isRecording) {
+      recognition.stop();
+    } else {
+      inputEl.value = '';
+      recognition.start();
+    }
+  });
+} else {
+  // Browser doesn't support speech recognition
+  micBtn.style.display = 'none';
+}
 
 document.querySelectorAll('.tip').forEach(function(el) {
   el.addEventListener('click', function() {

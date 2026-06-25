@@ -145,12 +145,11 @@ async function handleChatMessage(msg) {
   if (pendingAskUserResolve) {
     var resolve = pendingAskUserResolve;
     pendingAskUserResolve = null;
-    broadcastChat(msg.text, true); // Agent is still running
+    broadcastChat(msg.text, true);
     resolve({ success: true, message: 'User replied: ' + msg.text });
     return;
   }
 
-  // Guard against concurrent chat calls racing each other
   if (chatBusy) {
     broadcastChat('Still processing previous message, please wait…', false);
     return;
@@ -160,7 +159,6 @@ async function handleChatMessage(msg) {
   var text = msg.text;
   var history = msg.history || [];
 
-  // Save tabId from sidepanel
   if (msg.tabId) {
     targetTabId = msg.tabId;
     console.log('[OBA] got tabId from sidepanel:', msg.tabId);
@@ -177,44 +175,55 @@ async function handleChatMessage(msg) {
     }
 
     var messages = [{ role: 'system', content: CHAT_SYSTEM + pageContext }];
-    // Add recent history (last 10 messages)
     var recent = history.slice(-10);
     for (var i = 0; i < recent.length; i++) {
       messages.push({ role: recent[i].role, content: recent[i].content });
     }
 
-    var response = await queryOllama(messages);
+    // --- Streaming chat: show response word-by-word ---
+    var streamAccum = '';
+    var streamVisible = '';
+    var chatStreamCallback = function(chunk, fullText) {
+      streamAccum = fullText;
+      // Strip <think>...</think> blocks in real-time for display
+      var visible = streamAccum.replace(/<think>[\s\S]*?<\/think>/gi, '');
+      // Hide currently-open (incomplete) <think> block
+      var openIdx = visible.indexOf('<think>');
+      if (openIdx >= 0) visible = visible.slice(0, openIdx);
+      visible = visible.trim();
+      if (visible !== streamVisible) {
+        streamVisible = visible;
+        // Only stream if there's non-think content to show
+        if (visible && visible.toUpperCase().indexOf('PLAN:') < 0) {
+          broadcast({ type: 'chat_stream', text: visible });
+        }
+      }
+    };
+
+    var response = await queryOllama(messages, { num_predict: 1024 }, chatStreamCallback);
     console.log('[OBA] chat response:', response.slice(0, 200));
 
-    // Strip native thinking tags to avoid showing raw reasoning in chat bubbles
     response = response.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 
-    // Check if it's a plan
     if (response.toUpperCase().indexOf('PLAN:') >= 0) {
       var planStart = response.toUpperCase().indexOf('PLAN:');
       var planText = response.slice(planStart + 5).trim();
-
-      // Send the intro text before the plan (if any)
       var introText = response.slice(0, planStart).trim();
-      if (introText) {
-        broadcastChat(introText, true);
-      }
 
-      // If there's already a pending plan, notify and replace it
-      if (pendingPlan) {
-        broadcastChat('Previous plan cancelled — new plan ready.', true);
-      }
-      // Store pending plan
+      // Signal sidepanel to clear the streaming bubble (plan takes over)
+      broadcast({ type: 'chat_stream_cancel' });
+
+      if (introText) broadcastChat(introText, true);
+      if (pendingPlan) broadcastChat('Previous plan cancelled — new plan ready.', true);
       pendingPlan = { task: text, plan: planText };
-
-      // Send plan for approval
       broadcast({ type: 'plan', plan: planText });
     } else {
-      // Regular response
-      broadcastChat(response, false);
+      // Finalize the streamed bubble
+      broadcast({ type: 'chat_stream_done', text: response });
     }
   } catch (err) {
     console.error('[OBA] chat error:', err);
+    broadcast({ type: 'chat_stream_cancel' });
     broadcastChat('Error: ' + err.message, false);
   } finally {
     chatBusy = false;
@@ -756,6 +765,16 @@ async function executePlan(task, providedTabId) {
         broadcastStatus('done', { message: result.message, steps: step + 1 });
         broadcastChat('Task completed: ' + result.message, false);
         await showIndicator(tabId, false);
+        // Browser notification so user knows even if they tabbed away
+        try {
+          chrome.notifications.create('task-done-' + Date.now(), {
+            type: 'basic',
+            iconUrl: 'icons/icon48.png',
+            title: 'Task Completed ✅',
+            message: result.message || 'Your task finished successfully.',
+            priority: 1
+          });
+        } catch (e) {}
         return;
       }
     } catch (err) {
